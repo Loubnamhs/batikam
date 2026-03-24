@@ -38,3 +38,10 @@ htmlcov/
 
 # Logs
 *.log
+
+# Generated documents
+*.pdf
+*.PDF
+*.docx
+*.DOCX
+!templates/devis_template.docx
