@@ -1,0 +1,23 @@
+# Application Batikam Rénove
+# Python 3.11+
+
+# Interface Qt
+# IMPORTANT: PySide6 6.6.x supporte jusqu'à Python 3.12
+# Si vous avez Python 3.14, utilisez requirements_python314.txt à la place
+PySide6>=6.6.0
+
+# Base de données
+# sqlite3 est inclus dans Python standard
+
+# Génération de documents
+reportlab>=4.0.0
+docxtpl>=0.16.0
+python-docx>=1.1.0
+PyMuPDF>=1.23.0  # Pour la visualisation PDF (optionnel mais recommandé)
+
+# Tests
+pytest>=7.4.0
+pytest-qt>=4.2.0
+
+# Build
+pyinstaller>=6.0.0

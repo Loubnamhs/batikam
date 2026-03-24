@@ -1,0 +1,20 @@
+# Requirements pour Python 3.14
+# PySide6 sans contrainte de version pour permettre l'installation de la dernière version compatible
+
+# Interface Qt
+PySide6
+
+# Base de données
+# sqlite3 est inclus dans Python standard
+
+# Génération de documents
+reportlab>=4.0.0
+docxtpl>=0.16.0
+python-docx>=1.1.0
+
+# Tests
+pytest>=7.4.0
+pytest-qt>=4.2.0
+
+# Build
+pyinstaller>=6.0.0
