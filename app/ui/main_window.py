@@ -1,5 +1,6 @@
 """Fenetre principale de l'application."""
 
+
 from copy import deepcopy
 from decimal import Decimal
 from html import escape as html_escape
