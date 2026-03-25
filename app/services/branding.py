@@ -4,6 +4,8 @@
 from pathlib import Path
 from typing import Optional
 
+from app.services.paths import resolve_resource_path
+
 
 def resolve_logo_path() -> Optional[Path]:
     """Return the primary app logo path if available."""
@@ -14,7 +16,7 @@ def resolve_logo_path() -> Optional[Path]:
         "assets/logo.png",
     )
     for candidate in candidates:
-        path = Path(candidate)
+        path = resolve_resource_path(candidate)
         if path.exists():
             return path
     return None

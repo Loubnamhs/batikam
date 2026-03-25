@@ -10,13 +10,14 @@ from typing import Optional
 
 from app.models.devis import Chantier, Client, Devis, Ligne, Lot
 from app.services.numbering import obtenir_prochain_numero
+from app.services.paths import app_data_path
 
 
 class StorageSQLite:
     """Gestionnaire de persistance SQLite."""
 
     def __init__(self, db_path: str = "batikam_devis.db"):
-        self.db_path = db_path
+        self.db_path = str(app_data_path(db_path))
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 

@@ -22,6 +22,7 @@ $pyiArgs = @(
     "--name", $appName,
     "--add-data", "assets;assets",
     "--add-data", "templates;templates",
+    "--add-data", "app/ui/theme.qss;app/ui",
     "--add-data", "company_info.json;.",
     "--collect-all", "docx",
     "--collect-all", "docxtpl",
@@ -34,7 +35,10 @@ if (Test-Path $iconPath) {
     $pyiArgs = @("--icon", $iconPath) + $pyiArgs
 }
 
-python -m PyInstaller @pyiArgs
+$venvPython = Join-Path $projectRoot "venv\Scripts\python.exe"
+$pythonExe = if (Test-Path $venvPython) { $venvPython } else { "python" }
+
+& $pythonExe -m PyInstaller @pyiArgs
 
 if (-not (Test-Path $bundleDir)) {
     throw "Dossier de build introuvable: $bundleDir"
@@ -46,7 +50,10 @@ if (Test-Path $packageDir) {
 }
 New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
 
-Copy-Item -Recurse -Force (Join-Path $bundleDir "*") $packageDir
+robocopy $bundleDir $packageDir /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -gt 7) {
+    throw "Echec de copie vers le dossier release (robocopy code $LASTEXITCODE)."
+}
 
 # Garantit un fichier editable au premier lancement.
 $companyInfoPath = Join-Path $packageDir "company_info.json"

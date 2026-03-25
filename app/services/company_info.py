@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from dataclasses import asdict
 from pathlib import Path
 
+from app.services.paths import app_data_path
+
 
 @dataclass(frozen=True)
 class CompanyInfo:
@@ -25,7 +27,7 @@ class CompanyInfo:
     bic: str = "BREDFRPPXX"
 
 
-COMPANY_INFO_PATH = Path("company_info.json")
+COMPANY_INFO_PATH = app_data_path("company_info.json")
 
 
 def get_company_info(path: Path = COMPANY_INFO_PATH) -> CompanyInfo:

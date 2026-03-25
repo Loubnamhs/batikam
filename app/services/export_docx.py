@@ -10,6 +10,7 @@ from typing import Optional
 from app.models.devis import Devis, Ligne
 from app.services.branding import resolve_logo_path
 from app.services.company_info import get_company_info
+from app.services.paths import resolve_resource_path
 from app.services.document_theme import (
     COLOR_BORDER,
     COLOR_GOLD,
@@ -62,7 +63,7 @@ class DOCXExporter:
     """Exporteur DOCX pour devis/facture avec rendu métier propre."""
 
     def __init__(self, template_path: Optional[str] = None):
-        self.template_path = template_path or "templates/devis_template.docx"
+        self.template_path = template_path or str(resolve_resource_path("templates", "devis_template.docx"))
 
     def _has_grouped_lots(self, devis: Devis) -> bool:
         if not devis.utiliser_lots:

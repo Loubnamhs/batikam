@@ -6,9 +6,11 @@ from pathlib import Path
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QFrame, QWidget
 
+from app.services.paths import resolve_resource_path
+
 
 def _theme_path() -> Path:
-    return Path(__file__).with_name("theme.qss")
+    return resolve_resource_path("app", "ui", "theme.qss")
 
 
 def apply_theme(target: QWidget | QApplication) -> None:
