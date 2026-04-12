@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QFormLayout,
     QGroupBox,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -107,13 +108,14 @@ class DevisEditorWidget(QWidget):
         self.tabs = QTabWidget()
         root.addWidget(self.tabs)
 
-        self.tabs.addTab(self._wrap_scroll(self._create_info_tab()), "Informations")
         self.tabs.addTab(self._wrap_scroll(self._create_lots_tab()), "Lots et lignes")
+        self.tabs.addTab(self._wrap_scroll(self._create_info_tab()), "Informations")
         self.tabs.addTab(self._wrap_scroll(self._create_preview_tab()), "Apercu")
 
         self.btn_save = QPushButton("Sauvegarder")
         self.btn_save.setProperty("variant", "primary")
         self.btn_save.setObjectName("SaveButton")
+        self.btn_save.setMinimumHeight(44)
         self.btn_save.clicked.connect(self._on_save)
         root.addWidget(self.btn_save)
 
@@ -295,9 +297,24 @@ class DevisEditorWidget(QWidget):
         self.lots_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.lots_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.lots_table.setAlternatingRowColors(True)
-        self.lots_table.verticalHeader().setDefaultSectionSize(40)
-        self.lots_table.verticalHeader().setMinimumSectionSize(34)
+        self.lots_table.verticalHeader().setDefaultSectionSize(52)
+        self.lots_table.verticalHeader().setMinimumSectionSize(44)
         self.lots_table.setShowGrid(True)
+
+        # Colonnes : Description stretche, les autres ont une largeur fixe
+        hh = self.lots_table.horizontalHeader()
+        hh.setSectionResizeMode(0, QHeaderView.Fixed)
+        self.lots_table.setColumnWidth(0, 78)
+        hh.setSectionResizeMode(1, QHeaderView.Stretch)
+        hh.setSectionResizeMode(2, QHeaderView.Fixed)
+        self.lots_table.setColumnWidth(2, 88)
+        hh.setSectionResizeMode(3, QHeaderView.Fixed)
+        self.lots_table.setColumnWidth(3, 72)
+        hh.setSectionResizeMode(4, QHeaderView.Fixed)
+        self.lots_table.setColumnWidth(4, 110)
+        hh.setSectionResizeMode(5, QHeaderView.Fixed)
+        self.lots_table.setColumnWidth(5, 120)
+
         self.lots_table.setItemDelegateForColumn(1, MultilineTextDelegate(self.lots_table))
         self.lots_table.setItemDelegateForColumn(3, NumericEditorDelegate(self.lots_table))
         self.lots_table.setItemDelegateForColumn(4, NumericEditorDelegate(self.lots_table))
@@ -554,7 +571,6 @@ class DevisEditorWidget(QWidget):
                 )
                 self._style_special_row(subtotal_row, "subtotal")
 
-        self.lots_table.resizeColumnsToContents()
         self.lots_table.resizeRowsToContents()
         self._updating_table = False
 

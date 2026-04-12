@@ -50,6 +50,18 @@ from app.services.document_theme import (
 )
 
 
+def _set_cell_multiline(cell, text: str) -> None:
+    """Écrit un texte multi-lignes dans une cellule DOCX en respectant les \\n."""
+    lines = text.splitlines()
+    if not lines:
+        cell.text = ""
+        return
+    cell.paragraphs[0].clear()
+    cell.paragraphs[0].add_run(lines[0])
+    for line in lines[1:]:
+        cell.add_paragraph(line)
+
+
 def euro_fr(value) -> str:
     amount = float(value)
     return f"{amount:,.2f} €".replace(",", " ").replace(".", ",")
@@ -383,7 +395,7 @@ class DOCXExporter:
                     data_row = table.add_row().cells
                     for c in data_row:
                         set_cell_borders(c, color=TABLE_GRID)
-                    data_row[1].text = f"- {(ligne.designation or '').replace(chr(10), ' ')}"
+                    _set_cell_multiline(data_row[1], ligne.designation or "")
                     data_row[2].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
                     data_row[3].text = euro_fr(ligne.prix_unitaire_ht)
                     data_row[4].text = euro_fr(ligne.calculer_total_ht())
@@ -414,7 +426,7 @@ class DOCXExporter:
                     row = table.add_row().cells
                     for c in row:
                         set_cell_borders(c, color=TABLE_GRID)
-                    row[1].text = f"- {(ligne.designation or '').replace(chr(10), ' ')}"
+                    _set_cell_multiline(row[1], ligne.designation or "")
                     row[2].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
                     row[3].text = euro_fr(ligne.prix_unitaire_ht)
                     row[4].text = euro_fr(ligne.calculer_total_ht())

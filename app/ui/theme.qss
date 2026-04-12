@@ -178,7 +178,8 @@ QComboBox {
     color: #0F172A;
     border: 1px solid #CBD5E1;
     border-radius: 11px;
-    padding: 7px 10px;
+    padding: 9px 12px;
+    min-height: 36px;
     selection-background-color: #BFDBFE;
     selection-color: #0F172A;
 }
@@ -266,6 +267,49 @@ QPushButton[variant="danger"]:hover {
     background: #FECACA;
 }
 
+/* Bouton conversion devis → facture */
+#ToFactureBtn {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #059669,
+        stop:1 #047857
+    );
+    color: #FFFFFF;
+    border: 1px solid #047857;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 800;
+    font-size: 13px;
+    text-align: center;
+}
+
+#ToFactureBtn:hover {
+    background: #047857;
+    border: 1px solid #065F46;
+}
+
+#ToFactureBtn:pressed {
+    background: #065F46;
+}
+
+/* Bouton page Factures */
+#ConvertirFactureBtn {
+    background: #059669;
+    color: #FFFFFF;
+    border: 1px solid #047857;
+    font-weight: 700;
+}
+
+#ConvertirFactureBtn:hover {
+    background: #047857;
+}
+
+/* Séparateur dans la zone d'actions */
+#ActionsSeparator {
+    background: #E2E8F0;
+    max-height: 1px;
+    margin: 4px 0;
+}
+
 #ExportPdfButton {
     background: #10B981;
     color: #FFFFFF;
@@ -287,11 +331,29 @@ QPushButton[variant="danger"]:hover {
 }
 
 #GeneratePreviewButton,
-#SaveButton,
 #AddLotButton {
     background: #1F6FEB;
     color: #FFFFFF;
     border: 1px solid #1F6FEB;
+}
+
+#SaveButton {
+    background: #1F6FEB;
+    color: #FFFFFF;
+    border: 1px solid #1659C7;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 10px 24px;
+    min-height: 44px;
+}
+
+#SaveButton:hover {
+    background: #1659C7;
+}
+
+#SaveButton:pressed {
+    background: #1248A8;
 }
 
 #AddLineButton {
@@ -339,64 +401,103 @@ QPushButton[variant="danger"]:hover {
     background: #FEE2E2;
 }
 
+/* ── Material UI Tables ──────────────────────────────────────────────────── */
+
 QTableWidget {
     background: #FFFFFF;
-    color: #0F172A;
-    border: 1px solid #E2E8F0;
-    border-radius: 12px;
-    gridline-color: #E2E8F0;
-    selection-background-color: #DBEAFE;
-    selection-color: #0F172A;
-    alternate-background-color: #F8FAFC;
+    color: #1A1A2E;
+    border: none;
+    gridline-color: #F1F5F9;
+    selection-background-color: #E3F2FD;
+    selection-color: #0D47A1;
+    alternate-background-color: transparent;
+    outline: 0;
+}
+
+QHeaderView {
+    background: transparent;
+    border: none;
 }
 
 QHeaderView::section {
-    background: #F1F5F9;
-    color: #1E293B;
-    border: 0;
-    border-bottom: 1px solid #CBD5E1;
-    padding: 10px;
+    background: #FAFAFA;
+    color: #64748B;
+    border: none;
+    border-bottom: 2px solid #E2E8F0;
+    padding: 13px 16px;
     font-weight: 700;
+    font-size: 12px;
+}
+
+QHeaderView::section:first {
+    border-top-left-radius: 12px;
+}
+
+QHeaderView::section:last {
+    border-top-right-radius: 12px;
+}
+
+QHeaderView::section:hover {
+    background: #F1F5F9;
+    color: #334155;
 }
 
 QTableWidget::item {
-    color: #0F172A;
-    padding: 6px;
+    color: #1E293B;
+    padding: 4px 16px;
+    border-bottom: 1px solid #F1F5F9;
+    min-height: 52px;
+}
+
+QTableWidget::item:hover {
+    background: #F8FAFC;
 }
 
 QTableWidget::item:selected {
-    background: #DBEAFE;
-    color: #0F172A;
+    background: #E3F2FD;
+    color: #0D47A1;
 }
+
+QTableWidget::item:selected:hover {
+    background: #DBEAFE;
+}
+
+/* ── LotsTable (dans les dialogs devis/facture) ───────────────────────────── */
 
 #LotsTable {
     background: #FFFFFF;
-    border: 1px solid #D9E0E7;
-    border-radius: 14px;
-    gridline-color: #E5EAF0;
-    selection-background-color: #E9F2FC;
-    selection-color: #1F2937;
-    alternate-background-color: #FAFCFE;
+    border: none;
+    gridline-color: #F1F5F9;
+    selection-background-color: #E3F2FD;
+    selection-color: #1E3A8A;
+    alternate-background-color: transparent;
+    outline: 0;
 }
 
 #LotsTable::item {
-    color: #1F2937;
-    padding: 8px 10px;
+    color: #1E293B;
+    padding: 4px 16px;
+    border-bottom: 1px solid #F1F5F9;
+    min-height: 48px;
+}
+
+#LotsTable::item:hover {
+    background: #F8FAFC;
 }
 
 #LotsTable::item:selected {
-    background: #E9F2FC;
-    color: #1F2937;
+    background: #E3F2FD;
+    color: #1E3A8A;
 }
 
 #LotsTable QHeaderView::section {
-    background: #F3F6FA;
-    color: #0F2747;
-    border: 0;
-    border-bottom: 1px solid #D9E0E7;
-    border-right: 1px solid #E5EAF0;
-    padding: 11px 10px;
+    background: #FAFAFA;
+    color: #64748B;
+    border: none;
+    border-bottom: 2px solid #E2E8F0;
+    padding: 13px 16px;
     font-weight: 700;
+    font-size: 12px;
 }
 
 #LotsTable QComboBox {
@@ -449,9 +550,10 @@ QTabBar::tab {
     color: #334155;
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
-    padding: 9px 16px;
+    padding: 11px 22px;
     margin-right: 6px;
     font-weight: 700;
+    font-size: 13px;
 }
 
 QTabBar::tab:selected {
@@ -464,8 +566,9 @@ QTabBar::tab:selected {
 QGroupBox {
     border: 1px solid #E2E8F0;
     border-radius: 14px;
-    margin-top: 10px;
-    padding-top: 12px;
+    margin-top: 14px;
+    padding-top: 18px;
+    padding-bottom: 10px;
     font-weight: 700;
     color: #0F172A;
     background: #FFFFFF;
@@ -484,19 +587,21 @@ QScrollArea {
 }
 
 QScrollBar:vertical {
-    background: transparent;
-    width: 10px;
-    margin: 4px;
+    background: #F1F5F9;
+    width: 14px;
+    margin: 0;
+    border-radius: 7px;
 }
 
 QScrollBar::handle:vertical {
-    background: #CBD5E1;
-    border-radius: 5px;
-    min-height: 24px;
+    background: #94A3B8;
+    border-radius: 7px;
+    min-height: 32px;
+    margin: 2px;
 }
 
-QScrollBar::handle:vertical:hover {
-    background: #94A3B8;
+QScrollBar::handle:vertical:pressed {
+    background: #64748B;
 }
 
 QScrollBar::add-line:vertical,
@@ -504,25 +609,37 @@ QScrollBar::sub-line:vertical {
     height: 0;
 }
 
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
 QScrollBar:horizontal {
-    background: transparent;
-    height: 10px;
-    margin: 4px;
+    background: #F1F5F9;
+    height: 14px;
+    margin: 0;
+    border-radius: 7px;
 }
 
 QScrollBar::handle:horizontal {
-    background: #CBD5E1;
-    border-radius: 5px;
-    min-width: 24px;
+    background: #94A3B8;
+    border-radius: 7px;
+    min-width: 32px;
+    margin: 2px;
 }
 
-QScrollBar::handle:horizontal:hover {
-    background: #94A3B8;
+QScrollBar::handle:horizontal:pressed {
+    background: #64748B;
 }
 
 QScrollBar::add-line:horizontal,
 QScrollBar::sub-line:horizontal {
     width: 0;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: none;
 }
 
 QToolTip {
@@ -531,4 +648,119 @@ QToolTip {
     border: 1px solid #1E293B;
     padding: 5px 7px;
     border-radius: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATERIAL UI — Suivi de projet
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#MatSuiviHeader {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #0B1628,
+        stop:1 #152A55
+    );
+    border-bottom: 3px solid #1F6FEB;
+    border-radius: 0;
+}
+
+#MatSuiviTitle {
+    color: #FFFFFF;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+}
+
+#MatSuiviSubtitle {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+#MatSuiviContent {
+    background: #F4F6FB;
+}
+
+#MatCard {
+    background: #FFFFFF;
+    border: 1px solid #E8EDF5;
+    border-radius: 14px;
+}
+
+#MatSectionLabel {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+}
+
+#MatFieldLabel {
+    color: #94A3B8;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+#MatKpiCard {
+    background: #FFFFFF;
+    border: 1px solid #E8EDF5;
+    border-radius: 14px;
+}
+
+#MatKpiLabel {
+    color: #94A3B8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+#MatKpiValue {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+#MatProgressPct {
+    color: #1F6FEB;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+QProgressBar#MatBudgetProgress {
+    background: #E8EDF5;
+    border: none;
+    border-radius: 6px;
+    min-height: 10px;
+    max-height: 10px;
+}
+
+QProgressBar#MatBudgetProgress::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #34D399,
+        stop:1 #059669
+    );
+    border-radius: 6px;
+}
+
+QProgressBar#MatBudgetProgress[zone="warning"]::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #FB923C,
+        stop:1 #DC2626
+    );
+    border-radius: 6px;
+}
+
+#MatTableTopBar {
+    background: #FFFFFF;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+}
+
+#MatTableTitle {
+    color: #0F172A;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+#MatDivider {
+    background: #F1F5F9;
+    border: none;
+    max-height: 1px;
 }

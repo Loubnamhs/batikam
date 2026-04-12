@@ -548,6 +548,73 @@ class StorageSQLite:
         with self._connect() as conn:
             return conn.execute("SELECT * FROM clients ORDER BY nom").fetchall()
 
+    def read_client(self, client_id: int) -> Optional[sqlite3.Row]:
+        with self._connect() as conn:
+            return conn.execute("SELECT * FROM clients WHERE id = ?", (client_id,)).fetchone()
+
+    def create_client_direct(
+        self,
+        nom: str,
+        adresse: str = "",
+        code_postal: str = "",
+        ville: str = "",
+        telephone: str = "",
+        email: str = "",
+    ) -> int:
+        """Crée un client indépendamment de tout devis. Retourne l'id créé."""
+        data = json.dumps(
+            {"adresse": adresse, "code_postal": code_postal, "ville": ville,
+             "telephone": telephone, "email": email},
+            ensure_ascii=False,
+        )
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "INSERT INTO clients (nom, data_json, date_creation, date_modification) VALUES (?, ?, ?, ?)",
+                (nom, data, now, now),
+            )
+            conn.commit()
+            return int(cursor.lastrowid)
+
+    def update_client_direct(
+        self,
+        client_id: int,
+        nom: str,
+        adresse: str = "",
+        code_postal: str = "",
+        ville: str = "",
+        telephone: str = "",
+        email: str = "",
+    ) -> None:
+        """Met à jour les informations d'un client existant."""
+        data = json.dumps(
+            {"adresse": adresse, "code_postal": code_postal, "ville": ville,
+             "telephone": telephone, "email": email},
+            ensure_ascii=False,
+        )
+        now = datetime.now().isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE clients SET nom = ?, data_json = ?, date_modification = ? WHERE id = ?",
+                (nom, data, now, client_id),
+            )
+            conn.commit()
+
+    def delete_client_direct(self, client_id: int) -> bool:
+        """Supprime un client. Retourne True si la suppression a eu lieu."""
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def list_factures_by_client_id(self, client_id: int) -> list[sqlite3.Row]:
+        """Retourne toutes les factures d'un client donné."""
+        with self._connect() as conn:
+            return conn.execute(
+                "SELECT * FROM factures WHERE client_id = ? ORDER BY date_creation DESC, id DESC",
+                (client_id,),
+            ).fetchall()
+
     def list_projets_by_client(self, client_id: int) -> list[sqlite3.Row]:
         with self._connect() as conn:
             return conn.execute(

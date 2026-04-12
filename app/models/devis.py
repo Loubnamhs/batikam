@@ -84,7 +84,7 @@ class Devis:
     reference_affaire: str = ""
     client: Client = field(default_factory=Client)
     chantier: Chantier = field(default_factory=Chantier)
-    modalites_paiement: str = "40% acompte + 60% fin de chantier"
+    modalites_paiement: str = ""
     delais: str = ""
     remarques: str = ""
     statut: str = "Brouillon"  # Brouillon, Envoyé, Accepté, Refusé

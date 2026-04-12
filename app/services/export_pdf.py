@@ -395,9 +395,9 @@ class PDFExporter:
                 row_idx += 1
 
                 for line in lot.lignes:
-                    desc = escape((line.designation or "").replace("\n", " "))
+                    desc = "<br/>".join(escape(p) for p in (line.designation or "").splitlines())
                     qte = "1" if line.unite.lower() == "forfait" else f"{line.quantite}"
-                    rows.append(["", Paragraph(f"- {desc}", self.style_left), qte, euro_fr(line.prix_unitaire_ht), euro_fr(line.calculer_total_ht())])
+                    rows.append(["", Paragraph(desc, self.style_left), qte, euro_fr(line.prix_unitaire_ht), euro_fr(line.calculer_total_ht())])
                     row_idx += 1
 
                 rows.append(
@@ -419,7 +419,7 @@ class PDFExporter:
                 row_idx += 1
         else:
             for line in self._iter_all_lines(devis):
-                desc = escape((line.designation or "").replace("\n", " "))
+                desc = "<br/>".join(escape(p) for p in (line.designation or "").splitlines())
                 qte = "1" if line.unite.lower() == "forfait" else f"{line.quantite}"
                 rows.append(["", Paragraph(f"- {desc}", self.style_left), qte, euro_fr(line.prix_unitaire_ht), euro_fr(line.calculer_total_ht())])
                 row_idx += 1
