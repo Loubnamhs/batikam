@@ -489,8 +489,6 @@ class PDFExporter:
         )
 
         mentions_lines = []
-        if devis.modalites_paiement.strip():
-            mentions_lines.append(f"<b>Modalités de règlement :</b> {escape(devis.modalites_paiement)}")
         if devis.delais.strip():
             mentions_lines.append(f"<b>Délais :</b> {escape(devis.delais)}")
         if devis.remarques.strip():

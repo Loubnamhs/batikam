@@ -476,8 +476,6 @@ class DOCXExporter:
         set_cell_shading(mention_cell, SECTION)
 
         lines = []
-        if devis.modalites_paiement.strip():
-            lines.append(f"Modalités de règlement : {devis.modalites_paiement}")
         if devis.delais.strip():
             lines.append(f"Délais : {devis.delais}")
         if devis.remarques.strip():
