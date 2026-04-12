@@ -215,18 +215,6 @@ class PDFExporter:
 
         flow = []
 
-        company_lines = [
-            f"<font color='{self.navy.hexval()}'>{escape(company.forme)} {escape(company.raison_sociale)}</font>",
-            escape(company.adresse),
-            escape(company.code_postal_ville),
-            f"Tél. : {escape(company.telephone)}",
-            f"Email : {escape(company.email)}",
-            f"SIRET : {escape(company.siret)}",
-            f"RCS : {escape(company.rcs)}",
-            f"TVA : {escape(company.tva)}",
-        ]
-        company_txt = "<br/>".join(line for line in company_lines if line.strip())
-
         left_content = [
             LogoFrame(
                 self.logo_path,
@@ -234,9 +222,6 @@ class PDFExporter:
                 PDF_HEADER_LOGO_BOX_HEIGHT_CM * cm,
                 x_offset=PDF_HEADER_LOGO_X_OFFSET_CM * cm,
             ),
-            Spacer(1, PDF_HEADER_GAP_LOGO_TO_COMPANY_CM * cm),
-            Spacer(1, PDF_HEADER_COMPANY_Y_OFFSET_PT),
-            Paragraph(company_txt, self.style_company),
         ]
         left_block = Table([[left_content]], colWidths=[HEADER_LEFT_COL_CM * cm])
         left_block.setStyle(

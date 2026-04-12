@@ -226,34 +226,6 @@ class DOCXExporter:
         if logo_path and Path(logo_path).exists():
             p_logo.add_run().add_picture(str(logo_path), width=Cm(DOCX_HEADER_LOGO_WIDTH_CM))
 
-        p = left_cell.add_paragraph()
-        p.paragraph_format.left_indent = Pt(DOCX_HEADER_COMPANY_LEFT_INDENT_PT)
-        set_paragraph_spacing(
-            p,
-            before=DOCX_HEADER_COMPANY_Y_OFFSET_PT,
-            after=DOCX_HEADER_COMPANY_LINE_AFTER_PT,
-        )
-        set_run_font(
-            p.add_run(f"{company.forme} {company.raison_sociale}"),
-            DOCX_HEADER_COMPANY_TITLE_FONT_PT,
-            bold=False,
-            color=NAVY,
-        )
-        for line in [
-            company.adresse,
-            company.code_postal_ville,
-            f"Tél. : {company.telephone}",
-            f"Email : {company.email}",
-            f"SIRET : {company.siret}",
-            f"RCS : {company.rcs}",
-            f"TVA : {company.tva}",
-        ]:
-            p = left_cell.add_paragraph(line)
-            p.paragraph_format.left_indent = Pt(DOCX_HEADER_COMPANY_LEFT_INDENT_PT)
-            set_paragraph_spacing(p, after=DOCX_HEADER_COMPANY_LINE_AFTER_PT)
-            if p.runs:
-                set_run_font(p.runs[0], DOCX_HEADER_COMPANY_FONT_PT)
-
         label = "FACTURE" if is_facture else "DEVIS"
         date_cree = date_fr(devis.date_devis)
         date_ech = date_fr(devis.date_devis + timedelta(days=max(1, devis.validite_jours)))
