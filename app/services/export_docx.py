@@ -7,7 +7,6 @@ typographie claire, totaux élégants.
 
 from __future__ import annotations
 
-from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -123,6 +122,28 @@ class DOCXExporter:
 
         # ── Helpers XML ──────────────────────────────────────────────────────
 
+        def _fix_table(tbl, total_cm: float) -> None:
+            """Force largeur exacte + indentation 0 — remplace les éléments existants."""
+            twips = int(total_cm / 2.54 * 1440)
+            tbl_el = tbl._tbl
+            tbl_pr = tbl_el.find(qn("w:tblPr"))
+            if tbl_pr is None:
+                tbl_pr = OxmlElement("w:tblPr")
+                tbl_el.insert(0, tbl_pr)
+
+            def _replace(tag: str, attrs: dict) -> None:
+                # Supprimer tous les éléments existants du même tag
+                for old in tbl_pr.findall(qn(tag)):
+                    tbl_pr.remove(old)
+                el = OxmlElement(tag)
+                for k, v in attrs.items():
+                    el.set(qn(k), v)
+                tbl_pr.append(el)
+
+            _replace("w:tblW",          {"w:w": str(twips), "w:type": "dxa"})
+            _replace("w:tblInd",        {"w:w": "0",        "w:type": "dxa"})
+            _replace("w:tblCellSpacing",{"w:w": "0",        "w:type": "dxa"})
+
         def _shading(cell, fill: str) -> None:
             tc_pr = cell._tc.get_or_add_tcPr()
             shd = OxmlElement("w:shd")
@@ -130,6 +151,17 @@ class DOCXExporter:
             shd.set(qn("w:color"), "auto")
             shd.set(qn("w:fill"), fill)
             tc_pr.append(shd)
+
+        def _fix_cell_w(cell, width_cm: float) -> None:
+            """Force w:tcW sur la cellule — Word respecte cette valeur à l'export PDF."""
+            twips = int(width_cm / 2.54 * 1440)
+            tc_pr = cell._tc.get_or_add_tcPr()
+            for old in tc_pr.findall(qn("w:tcW")):
+                tc_pr.remove(old)
+            tcw = OxmlElement("w:tcW")
+            tcw.set(qn("w:w"), str(twips))
+            tcw.set(qn("w:type"), "dxa")
+            tc_pr.append(tcw)
 
         def _borders(cell, color: str = HEX_GRID, size: str = "4",
                      sides=("top", "left", "bottom", "right")) -> None:
@@ -223,12 +255,12 @@ class DOCXExporter:
         label    = "FACTURE" if is_facture_flag else "DEVIS"
         numero   = devis.numero or "—"
         d_cree   = date_fr(devis.date_devis)
-        d_ech    = date_fr(devis.date_devis + timedelta(days=max(1, devis.validite_jours)))
 
         top = doc.add_table(rows=1, cols=2)
         top.autofit = False
         top.columns[0].width = Cm(DOCX_HEADER_LEFT_COL_CM)
         top.columns[1].width = Cm(DOCX_HEADER_RIGHT_COL_CM)
+        _fix_table(top, DOCX_HEADER_LEFT_COL_CM + DOCX_HEADER_RIGHT_COL_CM)
         lc = top.cell(0, 0)
         rc = top.cell(0, 1)
         lc.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
@@ -255,26 +287,17 @@ class DOCXExporter:
         _spacing(p, after=6)
         _font(p.add_run(f"N°  {numero}"), 10.5, color=C_MUTED)
 
-        # Méta date / échéance
-        meta = rc.add_table(rows=2, cols=2)
-        meta.autofit = False
-        meta.columns[0].width = Cm(2.8)
-        meta.columns[1].width = Cm(max(0.1, DOCX_HEADER_RIGHT_COL_CM - 2.8))
-        for r_idx, (lbl, val) in enumerate(
-                [("Date", d_cree), ("Échéance", d_ech)]):
-            cl = meta.cell(r_idx, 0); cv = meta.cell(r_idx, 1)
-            _no_borders(cl); _no_borders(cv)
-            if r_idx == 0:
-                _bottom_border_para(cl.paragraphs[0], HEX_BORDER)
-                _bottom_border_para(cv.paragraphs[0], HEX_BORDER)
-            cl.text = lbl; cv.text = val
-            cl.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-            cv.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            _spacing(cl.paragraphs[0], after=2); _spacing(cv.paragraphs[0], after=2)
-            if cl.paragraphs[0].runs:
-                _font(cl.paragraphs[0].runs[0], 8.5, color=C_MUTED)
-            if cv.paragraphs[0].runs:
-                _font(cv.paragraphs[0].runs[0], 8.5, bold=True)
+        # Date — label au-dessus, valeur en dessous (même style CLIENT/AFFAIRE)
+        p = rc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        _spacing(p, before=4, after=1)
+        _font(p.add_run("DATE"), 7.5, bold=True, color=C_MUTED)
+
+        p = rc.add_paragraph(d_cree)
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        _spacing(p, after=6)
+        if p.runs:
+            _font(p.runs[0], 9.5)
 
         # Client
         p = rc.add_paragraph()
@@ -318,11 +341,12 @@ class DOCXExporter:
         p_gap = doc.add_paragraph("")
         _spacing(p_gap, after=DOCX_SPACE_BEFORE_TABLE_PT)
 
-        cols_count = len(LINE_TABLE_HEADERS)  # 4
+        cols_count = len(LINE_TABLE_HEADERS)  # 5
         table = doc.add_table(rows=1, cols=cols_count)
         table.autofit = False
         for i, w in enumerate(DOCX_LINE_TABLE_WIDTHS_CM):
             table.columns[i].width = Cm(w)
+        _fix_table(table, DOCX_CONTENT_TABLE_WIDTH_CM)
 
         # En-tête du tableau
         for i, title in enumerate(LINE_TABLE_HEADERS):
@@ -332,6 +356,7 @@ class DOCXExporter:
             _borders(cell, color=HEX_GRID, size="4")
             _margins(cell, 80, 80, 60, 60)
             p = cell.paragraphs[0]
+            # col 0 = LEFT, cols 1+ = RIGHT (Qté, Unité, PU HT, Total HT)
             p.alignment = WD_ALIGN_PARAGRAPH.RIGHT if i >= 1 else WD_ALIGN_PARAGRAPH.LEFT
             _spacing(p, before=2, after=2)
             if p.runs:
@@ -367,8 +392,9 @@ class DOCXExporter:
                         _margins(c, 80, 80, 55, 55)
                     _set_cell_multiline(row[0], ligne.designation or "")
                     row[1].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
-                    row[2].text = euro_fr(ligne.prix_unitaire_ht)
-                    row[3].text = euro_fr(ligne.calculer_total_ht())
+                    row[2].text = "" if ligne.unite.lower() == "forfait" else ligne.unite
+                    row[3].text = euro_fr(ligne.prix_unitaire_ht)
+                    row[4].text = euro_fr(ligne.calculer_total_ht())
                     for ci in range(cols_count):
                         p = row[ci].paragraphs[0]
                         p.alignment = (WD_ALIGN_PARAGRAPH.RIGHT
@@ -384,9 +410,9 @@ class DOCXExporter:
                     _borders(c, color=HEX_GRID, size="4")
                     _margins(c, 80, 80, 55, 55)
                 sub_row[0].text = f"Sous-total  {lot_name}"
-                sub_row[3].text = euro_fr(lot.calculer_sous_total_ht())
-                sub_row[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                for c in (sub_row[0], sub_row[3]):
+                sub_row[4].text = euro_fr(lot.calculer_sous_total_ht())
+                sub_row[4].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                for c in (sub_row[0], sub_row[4]):
                     _spacing(c.paragraphs[0], before=2, after=2)
                     if c.paragraphs[0].runs:
                         _font(c.paragraphs[0].runs[0], 9.5, bold=True, color=C_SUB_TXT)
@@ -398,8 +424,8 @@ class DOCXExporter:
                     _shading(c, "FFFFFF")
                     _borders(c, color=HEX_GRID, size="4", sides=("bottom",))
                 row[0].text = "Aucune prestation"
-                row[3].text = euro_fr(0)
-                row[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                row[4].text = euro_fr(0)
+                row[4].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             else:
                 for line_idx, ligne in enumerate(lines):
                     row = table.add_row().cells
@@ -410,8 +436,9 @@ class DOCXExporter:
                         _margins(c, 80, 80, 55, 55)
                     _set_cell_multiline(row[0], ligne.designation or "")
                     row[1].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
-                    row[2].text = euro_fr(ligne.prix_unitaire_ht)
-                    row[3].text = euro_fr(ligne.calculer_total_ht())
+                    row[2].text = "" if ligne.unite.lower() == "forfait" else ligne.unite
+                    row[3].text = euro_fr(ligne.prix_unitaire_ht)
+                    row[4].text = euro_fr(ligne.calculer_total_ht())
                     for ci in range(cols_count):
                         p = row[ci].paragraphs[0]
                         p.alignment = (WD_ALIGN_PARAGRAPH.RIGHT
@@ -420,87 +447,134 @@ class DOCXExporter:
                         if p.runs:
                             _font(p.runs[0], 9.5)
 
-        # ── Totaux (alignés à droite) ────────────────────────────────────
+        # ── Banque (gauche) + Totaux (droite) sur la même ligne ─────────────
+        # 4 colonnes : [banque | spacer | label totaux | valeur totaux]
+        # cellule banque fusionnée verticalement sur les 3 lignes
         doc.add_paragraph("")
-        total_col_w   = [4.8, 3.2]
-        spacer_w      = max(0.1, sum(DOCX_LINE_TABLE_WIDTHS_CM) - sum(total_col_w))
-        total_tbl     = doc.add_table(rows=3, cols=3)
-        total_tbl.autofit = False
-        total_tbl.columns[0].width = Cm(spacer_w)
-        total_tbl.columns[1].width = Cm(total_col_w[0])
-        total_tbl.columns[2].width = Cm(total_col_w[1])
+
+        totals_lbl_w = 4.6
+        totals_val_w = 3.4   # total bloc = 8.0 cm, calé à droite
+        BANK_W       = 7.0   # bloc banque compact à gauche
+        SPACER_W     = DOCX_CONTENT_TABLE_WIDTH_CM - BANK_W - totals_lbl_w - totals_val_w
 
         totals_data = [
-            ("Total HT",
-             euro_fr(devis.calculer_total_ht()), False),
-            (f"TVA  {devis.tva_pourcent_global} %",
-             euro_fr(devis.calculer_total_tva()), False),
-            ("TOTAL TTC",
-             euro_fr(devis.calculer_total_ttc()), True),
+            ("Total HT",                            euro_fr(devis.calculer_total_ht()),  False),
+            (f"TVA  {devis.tva_pourcent_global} %", euro_fr(devis.calculer_total_tva()), False),
+            ("TOTAL TTC",                           euro_fr(devis.calculer_total_ttc()), True),
         ]
+
+        def _vmerge_start(cell) -> None:
+            tc_pr = cell._tc.get_or_add_tcPr()
+            vm = OxmlElement("w:vMerge")
+            vm.set(qn("w:val"), "restart")
+            tc_pr.append(vm)
+
+        def _vmerge_cont(cell) -> None:
+            tc_pr = cell._tc.get_or_add_tcPr()
+            vm = OxmlElement("w:vMerge")
+            tc_pr.append(vm)
+
+        bt = doc.add_table(rows=3, cols=4)
+        bt.autofit = False
+        bt.columns[0].width = Cm(BANK_W)
+        bt.columns[1].width = Cm(SPACER_W)
+        bt.columns[2].width = Cm(totals_lbl_w)
+        bt.columns[3].width = Cm(totals_val_w)
+        _fix_table(bt, DOCX_CONTENT_TABLE_WIDTH_CM)
+
         for r_i, (lbl_txt, val_txt, is_ttc) in enumerate(totals_data):
-            row = total_tbl.rows[r_i].cells
-            # Cellule spacer
-            _no_borders(row[0])
-            _shading(row[0], "FFFFFF")
-            # Cellules label / valeur
+            cells = bt.rows[r_i].cells
+
+            # ── Colonne 0 : banque (fusionnée verticalement) — largeur forcée
+            _fix_cell_w(cells[0], BANK_W)
+            if r_i == 0:
+                if is_facture:
+                    _vmerge_start(cells[0])
+                    _shading(cells[0], HEX_SECTION)
+                    _borders(cells[0], color=HEX_GRID, size="4")
+                    _margins(cells[0], 120, 120, 100, 100)
+                    cells[0].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+                    cells[0].paragraphs[0].clear()
+                    bank_lines = [
+                        ("Coordonnées bancaires", ""),
+                        ("", company.banque_nom),
+                        ("", f"Code Banque {company.code_banque}  •  Code Guichet {company.code_guichet}"),
+                        ("", f"IBAN : {company.iban}"),
+                        ("", f"BIC : {company.bic}"),
+                    ]
+                    for idx, (lbl, val) in enumerate(bank_lines):
+                        p = cells[0].paragraphs[0] if idx == 0 else cells[0].add_paragraph()
+                        _spacing(p, after=2)
+                        if lbl:
+                            _font(p.add_run(f"{lbl}  " if val else lbl), 8.5, bold=True, color=C_NAVY)
+                        if val:
+                            _font(p.add_run(val), 9, color=C_TEXT)
+                else:
+                    _no_borders(cells[0])
+                    _shading(cells[0], "FFFFFF")
+            else:
+                if is_facture:
+                    _vmerge_cont(cells[0])
+                    _shading(cells[0], HEX_SECTION)
+                    _borders(cells[0], color=HEX_GRID, size="4", sides=("left", "right", "bottom"))
+                else:
+                    _no_borders(cells[0])
+                    _shading(cells[0], "FFFFFF")
+
+            # ── Colonne 1 : spacer transparent — largeur forcée
+            _fix_cell_w(cells[1], SPACER_W)
+            _no_borders(cells[1])
+            _shading(cells[1], "FFFFFF")
+            _margins(cells[1], 0, 0, 0, 0)
+
+            # ── Colonnes 2 + 3 : label et valeur totaux — largeurs forcées
+            _fix_cell_w(cells[2], totals_lbl_w)
+            _fix_cell_w(cells[3], totals_val_w)
             hex_bg = HEX_NAVY if is_ttc else "FFFFFF"
-            for c in (row[1], row[2]):
+            for c in (cells[2], cells[3]):
                 _shading(c, hex_bg)
                 _borders(c, color=HEX_BORDER, size="4")
                 _margins(c, 80, 80, 60, 60)
-            row[1].text = lbl_txt
-            row[2].text = val_txt
-            row[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            _spacing(row[1].paragraphs[0], before=2, after=2)
-            _spacing(row[2].paragraphs[0], before=2, after=2)
-            for c in (row[1], row[2]):
+            cells[2].text = lbl_txt
+            cells[3].text = val_txt
+            cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            for p in (cells[2].paragraphs[0], cells[3].paragraphs[0]):
+                _spacing(p, before=2, after=2)
+            for c in (cells[2], cells[3]):
                 if c.paragraphs[0].runs:
-                    txt_color = C_WHITE if is_ttc else C_MUTED if not is_ttc else C_WHITE
                     _font(c.paragraphs[0].runs[0],
-                          11.5 if is_ttc else 9.5,
-                          bold=is_ttc,
+                          11.5 if is_ttc else 9.5, bold=is_ttc,
                           color=C_WHITE if is_ttc else C_MUTED)
-            if row[2].paragraphs[0].runs:
-                _font(row[2].paragraphs[0].runs[0],
-                      11.5 if is_ttc else 9.5,
-                      bold=True if is_ttc else False,
+            if cells[3].paragraphs[0].runs:
+                _font(cells[3].paragraphs[0].runs[0],
+                      11.5 if is_ttc else 9.5, bold=is_ttc,
                       color=C_WHITE if is_ttc else None)
 
-        # ── Mentions / notes ─────────────────────────────────────────────
-        mentions_lines: list[tuple] = []
+        # ── Notes / délais (en dessous, pleine largeur) ───────────────────
+        notes_lines: list[tuple] = []
         if devis.delais.strip():
-            mentions_lines.append(("Délais", devis.delais))
+            notes_lines.append(("Délais", devis.delais))
         if devis.remarques.strip():
-            mentions_lines.append(("Remarques", devis.remarques))
-        if is_facture:
-            mentions_lines.append(("Coordonnées bancaires", ""))
-            mentions_lines.append(("", company.banque_nom))
-            mentions_lines.append(("",
-                f"Code Banque {company.code_banque}  •  Code Guichet {company.code_guichet}"))
-            mentions_lines.append(("", f"IBAN : {company.iban}"))
-            mentions_lines.append(("", f"BIC : {company.bic}"))
+            notes_lines.append(("Remarques", devis.remarques))
 
-        if mentions_lines:
+        if notes_lines:
             doc.add_paragraph("")
             ment_tbl = doc.add_table(rows=1, cols=1)
             ment_tbl.autofit = False
             ment_tbl.columns[0].width = Cm(DOCX_CONTENT_TABLE_WIDTH_CM)
+            _fix_table(ment_tbl, DOCX_CONTENT_TABLE_WIDTH_CM)
             mc = ment_tbl.cell(0, 0)
             _shading(mc, HEX_SECTION)
             _borders(mc, color=HEX_GRID, size="4")
             _margins(mc, 120, 120, 100, 100)
-
             mc.text = ""
-            for idx, (lbl, val) in enumerate(mentions_lines):
+            for idx, (lbl, val) in enumerate(notes_lines):
                 p = mc.paragraphs[0] if idx == 0 else mc.add_paragraph()
                 _spacing(p, after=2)
                 if lbl:
-                    run = p.add_run(f"{lbl}  " if val else lbl)
-                    _font(run, 8.5, bold=True, color=C_NAVY)
+                    _font(p.add_run(f"{lbl}  " if val else lbl), 8.5, bold=True, color=C_NAVY)
                 if val:
-                    run = p.add_run(val)
-                    _font(run, 9, color=C_TEXT if lbl else None)
+                    _font(p.add_run(val), 9, color=C_TEXT)
 
         # ── Footer ────────────────────────────────────────────────────────
         footer_line1 = (f"{company.forme} {company.raison_sociale}  •  "

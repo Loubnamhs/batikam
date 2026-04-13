@@ -10,7 +10,6 @@ Design sobre et professionnel :
 
 from __future__ import annotations
 
-from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 from xml.sax.saxutils import escape
@@ -89,12 +88,12 @@ class LogoFrame(Flowable):
         canv = self.canv
         canv.saveState()
         if self.logo_path and Path(self.logo_path).exists():
-            logo_h = min(self.height, PDF_HEADER_LOGO_HEIGHT_CM * cm)
-            py = max(0, self.height - logo_h)
+            # anchor="sw" → coin bas-gauche à (x_offset, 0)
+            # Le logo remonte jusqu'à self.height — aligné en haut de la frame
             canv.drawImage(
                 self.logo_path,
-                self.x_offset, py,
-                self.width, logo_h,
+                self.x_offset, 0,
+                self.width, self.height,
                 preserveAspectRatio=True,
                 anchor="sw",
                 mask="auto",
@@ -211,7 +210,6 @@ class PDFExporter:
         label   = "FACTURE" if is_facture else "DEVIS"
         numero  = devis.numero or "—"
         created = date_fr(devis.date_devis)
-        echeance = date_fr(devis.date_devis + timedelta(days=max(1, devis.validite_jours)))
 
         # ── Colonne gauche : logo seul ─────────────────────────────────────
         logo_frame = LogoFrame(
@@ -231,26 +229,10 @@ class PDFExporter:
         r.append(Paragraph(f"N° {escape(numero)}", self.s_doc_num))
         r.append(Spacer(1, 6))
 
-        # Méta date / échéance — mini-table 2 cols
-        meta = Table(
-            [
-                [Paragraph("Date",      self.s_doc_meta_lbl), Paragraph(escape(created),   self.s_doc_meta_val)],
-                [Paragraph("Échéance",  self.s_doc_meta_lbl), Paragraph(escape(echeance),  self.s_doc_meta_val)],
-            ],
-            colWidths=[2.8 * cm, (HEADER_RIGHT_COL_CM - 2.8) * cm],
-        )
-        meta.setStyle(TableStyle([
-            ("ALIGN",         (0, 0), (0, -1), "LEFT"),
-            ("ALIGN",         (1, 0), (1, -1), "RIGHT"),
-            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
-            ("TOPPADDING",    (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("LINEBELOW",     (0, 0), (-1, 0), 0.3, self.c_border),
-        ]))
-        r.append(meta)
-        r.append(Spacer(1, 8))
+        # Date — label au-dessus, valeur en dessous (même style CLIENT/AFFAIRE)
+        r.append(Paragraph("DATE", self.s_client_lbl))
+        r.append(Paragraph(escape(created), self.s_client_adr))
+        r.append(Spacer(1, 6))
 
         # Client
         client = devis.client
@@ -309,7 +291,7 @@ class PDFExporter:
         has_lots = self._has_grouped_lots(devis)
 
         # Colonnes : Description | Qté | PU HT | Total HT
-        col_w = [11.0 * cm, 1.9 * cm, 2.5 * cm, 3.1 * cm]
+        col_w = [9.5 * cm, 1.5 * cm, 1.8 * cm, 2.5 * cm, 3.2 * cm]
 
         # En-têtes
         rows: list = [[
@@ -317,19 +299,22 @@ class PDFExporter:
             Paragraph(LINE_TABLE_HEADERS[1], self.s_th_r),
             Paragraph(LINE_TABLE_HEADERS[2], self.s_th_r),
             Paragraph(LINE_TABLE_HEADERS[3], self.s_th_r),
+            Paragraph(LINE_TABLE_HEADERS[4], self.s_th_r),
         ]]
         dyn: list = []
         r = 1  # index courant (ligne 0 = header)
 
         def _add_line(ligne, alt: bool):
             nonlocal r
-            desc = "<br/>".join(escape(p) for p in (ligne.designation or "").splitlines())
-            qte  = "1" if ligne.unite.lower() == "forfait" else f"{ligne.quantite}"
+            desc  = "<br/>".join(escape(p) for p in (ligne.designation or "").splitlines())
+            qte   = "1" if ligne.unite.lower() == "forfait" else f"{ligne.quantite}"
+            unite = "" if ligne.unite.lower() == "forfait" else escape(ligne.unite)
             rows.append([
-                Paragraph(desc, self.s_left),
-                Paragraph(qte,  self.s_right),
-                Paragraph(euro_fr(ligne.prix_unitaire_ht),      self.s_right),
-                Paragraph(euro_fr(ligne.calculer_total_ht()),   self.s_right),
+                Paragraph(desc,  self.s_left),
+                Paragraph(qte,   self.s_right),
+                Paragraph(unite, self.s_right),
+                Paragraph(euro_fr(ligne.prix_unitaire_ht),    self.s_right),
+                Paragraph(euro_fr(ligne.calculer_total_ht()), self.s_right),
             ])
             if alt:
                 dyn.append(("BACKGROUND", (0, r), (-1, r), self.c_alt))
@@ -344,12 +329,12 @@ class PDFExporter:
                 # En-tête lot — fond discret, texte ardoise gras
                 rows.append([
                     Paragraph(f"<b>{escape(lot_name)}</b>", self.s_left),
-                    "", "", "",
+                    "", "", "", "",
                 ])
                 dyn.extend([
                     ("BACKGROUND", (0, r), (-1, r), self.c_lot),
                     ("TEXTCOLOR",  (0, r), (-1, r), self.c_navy),
-                    ("SPAN",       (0, r),  (3, r)),
+                    ("SPAN",       (0, r),  (4, r)),
                     ("TOPPADDING", (0, r), (-1, r), 7),
                     ("BOTTOMPADDING", (0, r), (-1, r), 7),
                 ])
@@ -363,7 +348,7 @@ class PDFExporter:
                 # Sous-total lot
                 rows.append([
                     Paragraph(f"Sous-total  {escape(lot_name)}", self.s_muted),
-                    "", "",
+                    "", "", "",
                     Paragraph(f"<b>{euro_fr(lot.calculer_sous_total_ht())}</b>", self.s_right),
                 ])
                 dyn.extend([
@@ -378,7 +363,7 @@ class PDFExporter:
                 _add_line(ligne, alt=(j % 2 == 1))
 
         if len(rows) <= 1:
-            rows.append(["Aucune prestation", "", "", euro_fr(0)])
+            rows.append(["Aucune prestation", "", "", "", euro_fr(0)])
 
         table = Table(rows, colWidths=col_w, repeatRows=1)
         table.setStyle(TableStyle([

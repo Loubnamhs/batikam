@@ -82,6 +82,7 @@ class FactureDialog(QDialog):
         if not is_new:
             self._load_facture(facture_id)
         else:
+            self.numero_edit.setText(storage.generate_next_facture_numero())
             self._lots = [Lot(nom="")]
             self._refresh_lots()
 
@@ -110,6 +111,11 @@ class FactureDialog(QDialog):
         header_form = QFormLayout(header_box)
         header_form.setVerticalSpacing(14)
         header_form.setHorizontalSpacing(18)
+
+        self.numero_edit = LineEdit()
+        self.numero_edit.setPlaceholderText("ex. FAC-2026-0001")
+        self.numero_edit.setMaximumWidth(220)
+        header_form.addRow("N° Facture", self.numero_edit)
 
         client_row = QHBoxLayout()
         self.client_combo = ComboBox()
@@ -351,6 +357,8 @@ class FactureDialog(QDialog):
             return
         row = self.storage.read_facture(facture_id)
 
+        self.numero_edit.setText(row["numero"] if row else (devis.numero or ""))
+
         if row and row["client_id"]:
             idx = self.client_combo.findData(int(row["client_id"]))
             if idx >= 0:
@@ -572,6 +580,7 @@ class FactureDialog(QDialog):
             lots = [Lot(nom="Prestations", lignes=deepcopy(self._lignes_directes))]
 
         return Devis(
+            numero=self.numero_edit.text().strip(),
             date_devis=facture_date,
             reference_affaire=affaire,
             client=client,
@@ -678,6 +687,7 @@ class FactureDialog(QDialog):
             lots = [Lot(nom="Prestations", lignes=deepcopy(self._lignes_directes))]
 
         devis = Devis(
+            numero=self.numero_edit.text().strip(),
             date_devis=facture_date,
             reference_affaire=affaire,
             client=client,
