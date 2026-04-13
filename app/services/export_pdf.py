@@ -37,6 +37,7 @@ from app.services.document_theme import (
     COLOR_TABLE_GRID,
     COLOR_TABLE_HEADER_BG,
     COLOR_TABLE_HEADER_TEXT,
+    COLOR_TABLE_ALT_BG,
     COLOR_TABLE_LOT_BG,
     COLOR_TABLE_STRIP_BG,
     COLOR_TABLE_SUBTOTAL_BG,
@@ -119,6 +120,7 @@ class PDFExporter:
         self.table_header_bg = colors.HexColor(COLOR_TABLE_HEADER_BG)
         self.table_header_text = colors.HexColor(COLOR_TABLE_HEADER_TEXT)
         self.table_strip_bg = colors.HexColor(COLOR_TABLE_STRIP_BG)
+        self.table_alt_bg = colors.HexColor(COLOR_TABLE_ALT_BG)
         self.table_lot_bg = colors.HexColor(COLOR_TABLE_LOT_BG)
         self.table_subtotal_bg = colors.HexColor(COLOR_TABLE_SUBTOTAL_BG)
         self.table_subtotal_text = colors.HexColor(COLOR_TABLE_SUBTOTAL_TEXT)
@@ -236,32 +238,35 @@ class PDFExporter:
             )
         )
 
+        # Badge DEVIS / FACTURE — fond navy, texte blanc
+        badge_style = ParagraphStyle(
+            "bat_badge",
+            parent=self.style_body,
+            alignment=TA_RIGHT,
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            textColor=colors.white,
+            leading=14,
+        )
         right_head_top = Table(
             [
-                [
-                    Paragraph(
-                        f"<b>{escape(label)}</b>",
-                        self.style_doc_label,
-                    ),
-                ],
-                [
-                    Paragraph(
-                        f"N° {escape(numero)}",
-                        self.style_doc_number,
-                    ),
-                ],
+                [Paragraph(f"<b>{escape(label)}</b>", badge_style)],
+                [Paragraph(f"N° {escape(numero)}", self.style_doc_number)],
             ],
             colWidths=[HEADER_RIGHT_COL_CM * cm],
         )
         right_head_top.setStyle(
             TableStyle(
                 [
+                    ("BACKGROUND", (0, 0), (-1, 0), self.navy),
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                    ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("TOPPADDING", (0, 0), (-1, -1), 0),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (0, 0), 7),
+                    ("BOTTOMPADDING", (0, 0), (0, 0), 7),
+                    ("TOPPADDING", (0, 1), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 1), (-1, -1), 2),
                 ]
             )
         )
@@ -352,126 +357,145 @@ class PDFExporter:
         return flow
 
     def _build_main_table(self, devis: Devis) -> Table:
+        # 4 colonnes modernes — pas de col vide initiale
         has_lots = self._has_grouped_lots(devis)
-        rows = [LINE_TABLE_HEADERS, ["", "", "", "", ""]]
-        styles_rows = [
-            ("BACKGROUND", (0, 1), (-1, 1), self.table_strip_bg),
-            ("TOPPADDING", (0, 1), (-1, 1), 1),
-            ("BOTTOMPADDING", (0, 1), (-1, 1), 1),
-            ("FONTSIZE", (0, 1), (-1, 1), 1),
-        ]
-        row_idx = 2
+        sep_color = colors.HexColor("#D8E4F2")
+
+        rows = [LINE_TABLE_HEADERS]
+        styles_rows: list = []
+        row_idx = 1  # ligne 0 = header
 
         if has_lots:
             for i, lot in enumerate(devis.lots, start=1):
                 if not lot.lignes:
                     continue
                 lot_name = lot.nom or f"Lot {i}"
-                rows.append(["", Paragraph(f"<b>{escape(lot_name)}</b>", self.style_left), "", "", ""])
-                styles_rows.extend(
-                    [
-                        ("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_lot_bg),
-                        ("FONTNAME", (0, row_idx), (-1, row_idx), "Helvetica-Bold"),
-                        ("TEXTCOLOR", (0, row_idx), (-1, row_idx), self.navy),
-                    ]
-                )
+
+                # En-tête de lot — fond bleu clair, texte navy gras, pleine largeur
+                rows.append([Paragraph(f"<b>{escape(lot_name)}</b>", self.style_left), "", "", ""])
+                styles_rows.extend([
+                    ("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_lot_bg),
+                    ("FONTNAME", (0, row_idx), (-1, row_idx), "Helvetica-Bold"),
+                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), self.navy),
+                    ("TOPPADDING", (0, row_idx), (-1, row_idx), 8),
+                    ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 8),
+                    ("SPAN", (0, row_idx), (3, row_idx)),
+                ])
                 if lot.lignes:
                     styles_rows.append(("NOSPLIT", (0, row_idx), (-1, row_idx + 1)))
                 row_idx += 1
 
-                for line in lot.lignes:
+                for j, line in enumerate(lot.lignes):
                     desc = "<br/>".join(escape(p) for p in (line.designation or "").splitlines())
                     qte = "1" if line.unite.lower() == "forfait" else f"{line.quantite}"
-                    rows.append(["", Paragraph(desc, self.style_left), qte, euro_fr(line.prix_unitaire_ht), euro_fr(line.calculer_total_ht())])
+                    rows.append([
+                        Paragraph(desc, self.style_left),
+                        qte,
+                        euro_fr(line.prix_unitaire_ht),
+                        euro_fr(line.calculer_total_ht()),
+                    ])
+                    if j % 2 == 1:
+                        styles_rows.append(("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_alt_bg))
                     row_idx += 1
 
-                rows.append(
-                    [
-                        "",
-                        Paragraph(f"<b>Sous-total {escape(lot_name)}</b>", self.style_left),
-                        "",
-                        "",
-                        Paragraph(f"<b>{euro_fr(lot.calculer_sous_total_ht())}</b>", self.style_right),
-                    ]
-                )
-                styles_rows.extend(
-                    [
-                        ("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_subtotal_bg),
-                        ("FONTNAME", (0, row_idx), (-1, row_idx), "Helvetica-Bold"),
-                        ("TEXTCOLOR", (1, row_idx), (4, row_idx), self.table_subtotal_text),
-                    ]
-                )
+                # Sous-total du lot
+                rows.append([
+                    Paragraph(f"<i>Sous-total {escape(lot_name)}</i>", self.style_left),
+                    "",
+                    "",
+                    Paragraph(f"<b>{euro_fr(lot.calculer_sous_total_ht())}</b>", self.style_right),
+                ])
+                styles_rows.extend([
+                    ("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_subtotal_bg),
+                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), self.table_subtotal_text),
+                    ("TOPPADDING", (0, row_idx), (-1, row_idx), 5),
+                    ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 5),
+                ])
                 row_idx += 1
         else:
-            for line in self._iter_all_lines(devis):
+            for j, line in enumerate(self._iter_all_lines(devis)):
                 desc = "<br/>".join(escape(p) for p in (line.designation or "").splitlines())
                 qte = "1" if line.unite.lower() == "forfait" else f"{line.quantite}"
-                rows.append(["", Paragraph(f"- {desc}", self.style_left), qte, euro_fr(line.prix_unitaire_ht), euro_fr(line.calculer_total_ht())])
+                rows.append([
+                    Paragraph(desc, self.style_left),
+                    qte,
+                    euro_fr(line.prix_unitaire_ht),
+                    euro_fr(line.calculer_total_ht()),
+                ])
+                if j % 2 == 1:
+                    styles_rows.append(("BACKGROUND", (0, row_idx), (-1, row_idx), self.table_alt_bg))
                 row_idx += 1
 
-        if len(rows) <= 2:
-            rows.append(["", "Aucune ligne", "", "", euro_fr(0)])
+        if len(rows) <= 1:
+            rows.append(["Aucune ligne", "", "", euro_fr(0)])
 
-        table = Table(rows, colWidths=[1.1 * cm, 10.0 * cm, 2.0 * cm, 2.3 * cm, 3.1 * cm], repeatRows=2)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), self.table_header_bg),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), self.table_header_text),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("BOX", (0, 0), (-1, -1), 0.6, self.table_grid),
-                    ("INNERGRID", (0, 0), (-1, -1), 0.35, self.table_grid),
-                    ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
-                    ("ALIGN", (1, 0), (1, -1), "LEFT"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 9.5),
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
-                    ("TOPPADDING", (0, 0), (-1, -1), 6),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ]
-                + styles_rows
-            )
+        table = Table(
+            rows,
+            colWidths=[11.0 * cm, 2.0 * cm, 2.5 * cm, 3.0 * cm],
+            repeatRows=1,
         )
+        table.setStyle(TableStyle([
+            # Global
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            # Alignements
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            # Header
+            ("BACKGROUND", (0, 0), (-1, 0), self.table_header_bg),
+            ("TEXTCOLOR", (0, 0), (-1, 0), self.table_header_text),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+            ("TOPPADDING", (0, 0), (-1, 0), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+            # Bordure extérieure uniquement + séparateurs horizontaux fins
+            ("BOX", (0, 0), (-1, -1), 0.5, self.table_grid),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.3, sep_color),
+        ] + styles_rows))
         return table
 
     def _build_totals_and_bank(self, devis: Devis) -> list:
         company = get_company_info()
         is_facture = (devis.statut or "").lower() == "facture"
 
-        total_ht = devis.calculer_total_ht()
+        total_ht  = devis.calculer_total_ht()
         total_tva = devis.calculer_total_tva()
         total_ttc = devis.calculer_total_ttc()
 
+        sep = colors.HexColor("#D8E4F2")
+
+        style_lbl = ParagraphStyle("tot_lbl", parent=self.style_body, fontSize=9.8, textColor=self.muted)
+        style_val = ParagraphStyle("tot_val", parent=self.style_body, fontSize=9.8, alignment=TA_RIGHT)
+        style_ttc_lbl = ParagraphStyle("tot_ttc_lbl", parent=self.style_body, fontSize=11.5,
+                                       fontName="Helvetica-Bold", textColor=colors.white)
+        style_ttc_val = ParagraphStyle("tot_ttc_val", parent=self.style_body, fontSize=11.5,
+                                       fontName="Helvetica-Bold", textColor=colors.white, alignment=TA_RIGHT)
+
         totals = Table(
             [
-                ["Total HT", euro_fr(total_ht)],
-                [f"TVA ({devis.tva_pourcent_global}%)", euro_fr(total_tva)],
-                ["TOTAL TTC", euro_fr(total_ttc)],
+                [Paragraph("Total HT", style_lbl), Paragraph(euro_fr(total_ht), style_val)],
+                [Paragraph(f"TVA ({devis.tva_pourcent_global} %)", style_lbl), Paragraph(euro_fr(total_tva), style_val)],
+                [Paragraph("TOTAL TTC", style_ttc_lbl), Paragraph(euro_fr(total_ttc), style_ttc_val)],
             ],
-            colWidths=[4.2 * cm, 3.0 * cm],
+            colWidths=[4.5 * cm, 3.2 * cm],
         )
-        totals.setStyle(
-            TableStyle(
-                [
-                    ("BOX", (0, 0), (-1, -1), 0.6, self.border),
-                    ("INNERGRID", (0, 0), (-1, -1), 0.35, self.border),
-                    ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                    ("BACKGROUND", (0, 0), (-1, 1), colors.white),
-                    ("BACKGROUND", (0, 2), (-1, 2), self.navy),
-                    ("TEXTCOLOR", (0, 2), (-1, 2), colors.white),
-                    ("FONTNAME", (0, 0), (-1, 1), "Helvetica"),
-                    ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 10.3),
-                    ("FONTSIZE", (0, 2), (-1, 2), 11.2),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                    ("TOPPADDING", (0, 0), (-1, -1), 7),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ]
-            )
-        )
+        totals.setStyle(TableStyle([
+            ("BOX",        (0, 0), (-1, -1), 0.5, self.table_grid),
+            ("LINEBELOW",  (0, 0), (-1, 1),  0.3, sep),
+            ("ALIGN",      (0, 0), (0, -1),  "LEFT"),
+            ("ALIGN",      (1, 0), (1, -1),  "RIGHT"),
+            ("BACKGROUND", (0, 0), (-1, 1),  colors.white),
+            ("BACKGROUND", (0, 2), (-1, 2),  self.navy),
+            ("TOPPADDING",    (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ]))
 
         mentions_lines = []
         if devis.delais.strip():
@@ -479,34 +503,41 @@ class PDFExporter:
         if devis.remarques.strip():
             mentions_lines.append(f"<b>Remarques :</b> {escape(devis.remarques).replace(chr(10), '<br/>')}")
         if is_facture:
-            mentions_lines.extend(
-                [
-                    "<b>Coordonnées bancaires :</b>",
-                    escape(company.banque_nom),
-                    f"Code Banque {escape(company.code_banque)}",
-                    f"Code Guichet {escape(company.code_guichet)}",
-                    f"IBAN : {escape(company.iban)}",
-                    f"BIC : {escape(company.bic)}",
-                ]
-            )
+            mentions_lines.extend([
+                "<b>Coordonnées bancaires :</b>",
+                escape(company.banque_nom),
+                f"Code Banque {escape(company.code_banque)}  •  Code Guichet {escape(company.code_guichet)}",
+                f"IBAN : {escape(company.iban)}",
+                f"BIC : {escape(company.bic)}",
+            ])
 
-        mentions_txt = "<br/>".join(mentions_lines) if mentions_lines else " "
-        mentions = Table([[Paragraph(mentions_txt, self.style_body)]], colWidths=[11.0 * cm])
-        mentions.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, -1), self.section),
-                    ("BOX", (0, 0), (-1, -1), 0.6, self.border),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ]
-            )
-        )
+        style_mention_title = ParagraphStyle("men_t", parent=self.style_body, fontSize=8.5,
+                                             fontName="Helvetica-Bold", textColor=self.navy,
+                                             spaceAfter=4)
+        mentions_content = [Paragraph("<b>Notes</b>", style_mention_title)] if mentions_lines else []
+        for line in mentions_lines:
+            mentions_content.append(Paragraph(line, self.style_body))
 
-        row = Table([[mentions, totals]], colWidths=[11.0 * cm, 7.2 * cm])
-        row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+        if not mentions_content:
+            mentions_content = [Paragraph(" ", self.style_body)]
+
+        mentions = Table([[mentions_content]], colWidths=[11.0 * cm])
+        mentions.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), self.section),
+            ("BOX",           (0, 0), (-1, -1), 0.5, self.table_grid),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ]))
+
+        gap = Spacer(0.4 * cm, 1)
+        row = Table([[mentions, gap, totals]], colWidths=[11.0 * cm, 0.4 * cm, 7.1 * cm])
+        row.setStyle(TableStyle([
+            ("VALIGN",     (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
         return [CondPageBreak(7.5 * cm), KeepTogether([row])]
 
     def export(self, devis: Devis, output_path: str):

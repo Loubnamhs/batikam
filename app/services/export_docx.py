@@ -317,110 +317,125 @@ class DOCXExporter:
         set_paragraph_spacing(sep_cell.paragraphs[0], after=0)
         doc.add_paragraph("")
 
-        # ---------- Main table ----------
+        # ---------- Main table — 4 colonnes modernes ----------
         p_table_gap = doc.add_paragraph("")
         set_paragraph_spacing(p_table_gap, after=DOCX_SPACE_BEFORE_TABLE_PT)
-        columns = LINE_TABLE_HEADERS
+        columns = LINE_TABLE_HEADERS  # 4 cols: Description, Qté, PU HT, Total HT
         table = doc.add_table(rows=1, cols=len(columns))
         table.autofit = False
         line_table_widths_cm = list(DOCX_LINE_TABLE_WIDTHS_CM)
         for i, width_cm in enumerate(line_table_widths_cm):
             table.columns[i].width = Cm(width_cm)
 
+        # Header row
         for i, title in enumerate(columns):
             cell = table.rows[0].cells[i]
             cell.text = title
             set_cell_shading(cell, TABLE_HEADER_BG)
             set_cell_borders(cell, color=TABLE_GRID)
             p = cell.paragraphs[0]
-            if i >= 2:
+            if i >= 1:
                 p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            else:
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
             if p.runs:
                 set_run_font(p.runs[0], 11, bold=True, color=TABLE_HEADER_TEXT)
-            set_paragraph_spacing(p, after=2)
-
-        strip = table.add_row().cells
-        for c in strip:
-            c.text = ""
-            set_cell_shading(c, TABLE_STRIP_BG)
-            set_cell_borders(c, color=TABLE_GRID)
+            set_paragraph_spacing(p, before=4, after=4)
 
         has_lots = self._has_grouped_lots(devis)
+        ALT_BG = "EDF4FF"  # bleu très clair pour lignes alternées
+
         if has_lots:
-            for idx, lot in enumerate(devis.lots, start=1):
+            for lot_idx, lot in enumerate(devis.lots, start=1):
                 if not lot.lignes:
                     continue
 
+                # Ligne en-tête de lot — fond bleu clair, text navy, span all cols
                 lot_row = table.add_row()
                 set_row_no_split(lot_row)
                 row = lot_row.cells
-                for c in row:
-                    set_cell_shading(c, TABLE_LOT_BG)
-                    set_cell_borders(c, color=TABLE_GRID)
-                row[0].text = f"Lot {idx}"
-                row[1].text = lot.nom or f"Lot {idx}"
-                for c in (row[0], row[1]):
-                    if c.paragraphs[0].runs:
-                        set_run_font(c.paragraphs[0].runs[0], 11, bold=True, color=NAVY)
+                lot_name = lot.nom or f"Lot {lot_idx}"
+                # Merge all cells for the lot header
+                merged = row[0].merge(row[-1])
+                merged.text = lot_name
+                set_cell_shading(merged, TABLE_LOT_BG)
+                set_cell_borders(merged, color=TABLE_GRID)
+                if merged.paragraphs[0].runs:
+                    set_run_font(merged.paragraphs[0].runs[0], 11, bold=True, color=NAVY)
+                set_paragraph_spacing(merged.paragraphs[0], before=4, after=4)
 
-                for ligne in lot.lignes:
+                for line_idx, ligne in enumerate(lot.lignes):
                     data_row = table.add_row().cells
+                    bg = ALT_BG if line_idx % 2 == 1 else "FFFFFF"
                     for c in data_row:
-                        set_cell_borders(c, color=TABLE_GRID)
-                    _set_cell_multiline(data_row[1], ligne.designation or "")
-                    data_row[2].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
-                    data_row[3].text = euro_fr(ligne.prix_unitaire_ht)
-                    data_row[4].text = euro_fr(ligne.calculer_total_ht())
-                    for idx_num in (2, 3, 4):
-                        data_row[idx_num].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        set_cell_shading(c, bg)
+                        set_cell_borders(c, color=TABLE_GRID, size="4")
+                    _set_cell_multiline(data_row[0], ligne.designation or "")
+                    data_row[1].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
+                    data_row[2].text = euro_fr(ligne.prix_unitaire_ht)
+                    data_row[3].text = euro_fr(ligne.calculer_total_ht())
+                    for col_num in (1, 2, 3):
+                        data_row[col_num].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    for c in data_row:
+                        if c.paragraphs[0].runs:
+                            set_run_font(c.paragraphs[0].runs[0], 10.5)
+                    set_paragraph_spacing(data_row[0].paragraphs[0], after=2)
 
+                # Sous-total du lot
                 sub_row = table.add_row().cells
                 for c in sub_row:
                     set_cell_shading(c, TABLE_SUBTOTAL_BG)
                     set_cell_borders(c, color=TABLE_GRID)
-                sub_row[1].text = f"Sous-total {lot.nom or f'Lot {idx}'}"
-                sub_row[4].text = euro_fr(lot.calculer_sous_total_ht())
-                sub_row[4].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                for c in (sub_row[1], sub_row[4]):
+                sub_row[0].text = f"Sous-total  {lot_name}"
+                sub_row[3].text = euro_fr(lot.calculer_sous_total_ht())
+                sub_row[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                for c in (sub_row[0], sub_row[3]):
                     if c.paragraphs[0].runs:
                         set_run_font(c.paragraphs[0].runs[0], 10.5, bold=True, color=TABLE_SUBTOTAL_TEXT)
+                set_paragraph_spacing(sub_row[0].paragraphs[0], before=3, after=3)
         else:
             lines = self._iter_all_lines(devis)
             if not lines:
                 row = table.add_row().cells
                 for c in row:
+                    set_cell_shading(c, "FFFFFF")
                     set_cell_borders(c, color=TABLE_GRID)
-                row[1].text = "Aucune ligne"
-                row[4].text = euro_fr(0)
-                row[4].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                row[0].text = "Aucune ligne"
+                row[3].text = euro_fr(0)
+                row[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             else:
-                for ligne in lines:
+                for line_idx, ligne in enumerate(lines):
                     row = table.add_row().cells
+                    bg = ALT_BG if line_idx % 2 == 1 else "FFFFFF"
                     for c in row:
-                        set_cell_borders(c, color=TABLE_GRID)
-                    _set_cell_multiline(row[1], ligne.designation or "")
-                    row[2].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
-                    row[3].text = euro_fr(ligne.prix_unitaire_ht)
-                    row[4].text = euro_fr(ligne.calculer_total_ht())
-                    for idx_num in (2, 3, 4):
-                        row[idx_num].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        set_cell_shading(c, bg)
+                        set_cell_borders(c, color=TABLE_GRID, size="4")
+                    _set_cell_multiline(row[0], ligne.designation or "")
+                    row[1].text = "1" if ligne.unite.lower() == "forfait" else str(ligne.quantite)
+                    row[2].text = euro_fr(ligne.prix_unitaire_ht)
+                    row[3].text = euro_fr(ligne.calculer_total_ht())
+                    for col_num in (1, 2, 3):
+                        row[col_num].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    for c in row:
+                        if c.paragraphs[0].runs:
+                            set_run_font(c.paragraphs[0].runs[0], 10.5)
 
-        # ---------- Totals ----------
+        # ---------- Totaux — bloc aligné à droite ----------
         doc.add_paragraph("")
+        total_col_w = [4.5, 3.2]
+        total_left_spacer = sum(line_table_widths_cm) - sum(total_col_w)
         total_table = doc.add_table(rows=3, cols=3)
         total_table.autofit = False
-        total_col_widths_cm = [4.2, 3.0]
-        total_left_spacer_cm = sum(line_table_widths_cm) - sum(total_col_widths_cm)
-        total_table.columns[0].width = Cm(total_left_spacer_cm)
-        total_table.columns[1].width = Cm(total_col_widths_cm[0])
-        total_table.columns[2].width = Cm(total_col_widths_cm[1])
+        total_table.columns[0].width = Cm(max(0.1, total_left_spacer))
+        total_table.columns[1].width = Cm(total_col_w[0])
+        total_table.columns[2].width = Cm(total_col_w[1])
 
-        totals = [
-            ("Total HT", euro_fr(devis.calculer_total_ht())),
-            (f"TVA ({devis.tva_pourcent_global}%)", euro_fr(devis.calculer_total_tva())),
-            ("TOTAL TTC", euro_fr(devis.calculer_total_ttc())),
+        totals_data = [
+            ("Total HT",                        euro_fr(devis.calculer_total_ht()),  False),
+            (f"TVA ({devis.tva_pourcent_global}%)", euro_fr(devis.calculer_total_tva()), False),
+            ("TOTAL TTC",                        euro_fr(devis.calculer_total_ttc()), True),
         ]
-        for r, (left_txt, right_txt) in enumerate(totals):
+        for r, (left_txt, right_txt, is_ttc) in enumerate(totals_data):
             row = total_table.rows[r].cells
             row[0].text = ""
             set_cell_no_borders(row[0])
@@ -428,15 +443,18 @@ class DOCXExporter:
 
             row[1].text = left_txt
             row[2].text = right_txt
+            bg_hex = COLOR_NAVY.replace("#", "") if is_ttc else "FFFFFF"
             for c in (row[1], row[2]):
-                set_cell_borders(c)
-                set_cell_shading(c, COLOR_NAVY.replace("#", "") if r == 2 else "FFFFFF")
+                set_cell_borders(c, color=TABLE_GRID)
+                set_cell_shading(c, bg_hex)
+                set_paragraph_spacing(c.paragraphs[0], before=4, after=4)
             row[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             for c in (row[1], row[2]):
                 if c.paragraphs[0].runs:
-                    set_run_font(c.paragraphs[0].runs[0], 12 if r == 2 else 10.5, bold=True)
-                    if r == 2:
-                        c.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                    run = c.paragraphs[0].runs[0]
+                    set_run_font(run, 12 if is_ttc else 10.5, bold=is_ttc)
+                    if is_ttc:
+                        run.font.color.rgb = RGBColor(255, 255, 255)
 
         # ---------- Mentions / règlement ----------
         doc.add_paragraph("")
@@ -444,35 +462,37 @@ class DOCXExporter:
         mentions.autofit = False
         mentions.columns[0].width = Cm(DOCX_CONTENT_TABLE_WIDTH_CM)
         mention_cell = mentions.cell(0, 0)
-        set_cell_borders(mention_cell)
+        set_cell_borders(mention_cell, color=TABLE_GRID)
         set_cell_shading(mention_cell, SECTION)
+        set_cell_margins(mention_cell, 120, 120, 80, 80)
 
         lines = []
         if devis.delais.strip():
-            lines.append(f"Délais : {devis.delais}")
+            lines.append(("Délais", devis.delais, False))
         if devis.remarques.strip():
-            lines.append(f"Remarques : {devis.remarques}")
+            lines.append(("Remarques", devis.remarques, False))
         if is_facture:
-            lines.extend(
-                [
-                    "Coordonnées bancaires :",
-                    company.banque_nom,
-                    f"Code Banque {company.code_banque}",
-                    f"Code Guichet {company.code_guichet}",
-                    f"IBAN : {company.iban}",
-                    f"BIC : {company.bic}",
-                ]
-            )
+            lines.append(("Coordonnées bancaires", "", True))
+            lines.append(("", company.banque_nom, False))
+            lines.append(("", f"Code Banque {company.code_banque}  •  Code Guichet {company.code_guichet}", False))
+            lines.append(("", f"IBAN : {company.iban}", False))
+            lines.append(("", f"BIC : {company.bic}", False))
+
         if not lines:
-            lines = [" "]
+            lines = [("", " ", False)]
 
         mention_cell.text = ""
-        for idx, line in enumerate(lines):
+        for idx, (label, value, is_section) in enumerate(lines):
             p = mention_cell.paragraphs[0] if idx == 0 else mention_cell.add_paragraph()
-            p.text = line
+            p.text = ""
             set_paragraph_spacing(p, after=2)
-            if p.runs:
-                set_run_font(p.runs[0], 9.8, bold=(line.endswith(":") or line.startswith("IBAN") or line.startswith("BIC")))
+            if label:
+                run_lbl = p.add_run(f"{label} : " if value else label)
+                set_run_font(run_lbl, 9.8, bold=True,
+                             color=RGBColor.from_string(COLOR_NAVY.replace("#", "")) if is_section else None)
+            if value:
+                run_val = p.add_run(value)
+                set_run_font(run_val, 9.8)
 
         # ---------- Footer ----------
         footer_line1 = f"{company.forme} {company.raison_sociale} • {company.adresse} • {company.code_postal_ville}"
