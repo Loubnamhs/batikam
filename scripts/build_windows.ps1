@@ -61,15 +61,20 @@ $pyiArgs = @(
     "--noconfirm", "--clean",
     "--windowed",
     "--onedir",
-    "--name",     $appName,
-    "--add-data", "assets;assets",
-    "--add-data", "app/ui/theme.qss;app/ui",
-    "--add-data", "company_info.json;.",
+    "--name",        $appName,
+    "--add-data",    "assets;assets",
+    "--add-data",    "app/ui/theme.qss;app/ui",
+    "--add-data",    "app/ui/theme.qss;.",
+    "--add-data",    "company_info.json;.",
     "--collect-all", "qfluentwidgets",
     "--collect-all", "docx",
-    "--collect-all", "docxtpl",
     "--collect-all", "reportlab",
-    "app/main.py"
+    "--hidden-import", "app.ui.splash",
+    "--hidden-import", "app.ui.theme",
+    "--hidden-import", "app.ui.main_window",
+    "--hidden-import", "app.services.storage_sqlite",
+    "--hidden-import", "app.services.branding",
+    "app/__main__.py"
 )
 
 if (Test-Path $iconPath) {
